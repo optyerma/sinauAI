@@ -1,0 +1,16 @@
+{
+  "name": "Rawat iPhone",
+  "short_name": "Rawat iPhone",
+  "description": "Pengingat perawatan iPhone: tugas rutin, pengaturan, kesehatan baterai, dan memori.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF2EF",
+  "theme_color": "#1E7A57",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

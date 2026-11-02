@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rawat iPhone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Pengingat perawatan iPhone: tugas rutin, pengaturan sekali atur, catatan kesehatan baterai, dan cek memori.">
+<link rel="manifest" href="manifest.webmanifest" data-pwa>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" data-pwa>
+<link rel="icon" href="icons/icon-192.png" data-pwa>
+<meta name="apple-mobile-web-app-capable" content="yes" data-pwa>
+<meta name="mobile-web-app-capable" content="yes" data-pwa>
+<meta name="apple-mobile-web-app-title" content="Rawat iPhone" data-pwa>
+<meta name="apple-mobile-web-app-status-bar-style" content="default" data-pwa>
+<meta name="theme-color" content="#EEF2EF" media="(prefers-color-scheme: light)" data-pwa>
+<meta name="theme-color" content="#0D1211" media="(prefers-color-scheme: dark)" data-pwa>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: satu kolom sempit seperti layar ponsel — ringkasan skor di atas, tab segmen, lalu daftar tugas berbentuk "jalur menu Pengaturan". */
+:root {
+  --bg: #EEF2EF;
+  --surface: #FFFFFF;
+  --ink: #15201D;
+  --muted: #5B6B66;
+  --line: #D6DFDA;
+  --accent: #1E7A57;
+  --accent-soft: #DCEFE5;
+  --warn: #A9650F;
+  --warn-soft: #FBEBD3;
+  --crit: #B3261E;
+  --crit-soft: #F8DEDB;
+  --font-body: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1211; --surface: #161D1B; --ink: #E4ECE8; --muted: #93A49E; --line: #26302D;
+    --accent: #4CC38A; --accent-soft: #173327; --warn: #E6A345; --warn-soft: #3A2A12;
+    --crit: #F08077; --crit-soft: #3D1916; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1211; --surface: #161D1B; --ink: #E4ECE8; --muted: #93A49E; --line: #26302D;
+  --accent: #4CC38A; --accent-soft: #173327; --warn: #E6A345; --warn-soft: #3A2A12;
+  --crit: #F08077; --crit-soft: #3D1916; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+  max-width: 560px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 20px) calc(env(safe-area-inset-bottom, 0px) + 40px);
+  display: grid; gap: 20px;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* Ringkasan */
+.hero { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+.ring { width: 92px; height: 92px; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--line); }
+.ring .val { stroke: var(--accent); transition: stroke-dashoffset .5s ease; }
+.ring b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 22px var(--font-data); font-variant-numeric: tabular-nums; }
+.hero h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.hero .sum { color: var(--muted); margin-top: 4px; }
+
+/* Tab */
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.tabs button { font: 600 13px var(--font-body); color: var(--muted); background: none; border: 0; border-radius: 9px; padding: 9px 4px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+section[role="tabpanel"] { display: grid; gap: 14px; }
+.group-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 6px; }
+.group-title h2 { font-size: 17px; font-weight: 700; }
+.group-title span { font-size: 13px; color: var(--muted); }
+
+/* Daftar tugas */
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 14px; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.check { appearance: none; -webkit-appearance: none; margin: 2px 0 0; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.check:checked { background: var(--accent); border-color: var(--accent); }
+.check:checked::after { content: ""; width: 7px; height: 12px; border: solid var(--surface); border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg); }
+.item .body { min-width: 0; display: grid; gap: 6px; }
+.item .top { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+.item h3 { font-size: 15px; font-weight: 700; }
+.item .why { font-size: 13.5px; color: var(--muted); }
+.path { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12.5px; }
+.path span { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+.path i { font-style: normal; color: var(--muted); }
+.pill { flex: none; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.pill.due { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--crit-soft); color: var(--crit); }
+.pill.new { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+
+/* Kartu formulir */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: var(--muted); }
+input, select { font: 500 16px var(--font-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+.btn { font: 700 15px var(--font-body); border: 0; border-radius: 11px; padding: 12px 16px; background: var(--accent); color: var(--surface); cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--crit); border: 1px solid var(--line); font-weight: 600; font-size: 13px; padding: 8px 12px; }
+.big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.big b { font: 600 34px var(--font-data); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.note { font-size: 13.5px; color: var(--muted); }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 500 10px var(--font-data); }
+.log { display: grid; gap: 0; }
+.log div { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; font-size: 14px; }
+.log div:first-child { border-top: 0; }
+.log button { background: none; border: 0; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.sample { font-size: 12px; font-weight: 700; color: var(--warn); }
+.bar { height: 14px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.bar.warn span { background: var(--warn); }
+.bar.crit span { background: var(--crit); }
+.avoid { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.avoid li { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 14px; }
+.avoid li::before { content: "✕"; color: var(--crit); font-weight: 800; }
+.install { font-size: 13.5px; color: var(--muted); display: grid; gap: 4px; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 380px) { .row { grid-template-columns: 1fr; } .tabs button { font-size: 12px; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <div class="ring" aria-hidden="true">
+      <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="42" fill="none" stroke-width="10"/><circle class="val" id="ringVal" cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>
+      <b id="score">0%</b>
+    </div>
+    <div>
+      <p class="eyebrow">Skor perawatan</p>
+      <h1>Rawat iPhone</h1>
+      <p class="sum" id="summary">Memuat…</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Bagian">
+    <button role="tab" id="tab-rutin" aria-controls="p-rutin" data-tab="rutin">Rutin</button>
+    <button role="tab" id="tab-atur" aria-controls="p-atur" data-tab="atur">Sekali Atur</button>
+    <button role="tab" id="tab-baterai" aria-controls="p-baterai" data-tab="baterai">Baterai</button>
+    <button role="tab" id="tab-memori" aria-controls="p-memori" data-tab="memori">Memori</button>
+  </nav>
+
+  <section role="tabpanel" id="p-rutin" aria-labelledby="tab-rutin">
+    <div class="group-title"><h2>Mingguan</h2><span>setiap 7–14 hari</span></div>
+    <div class="list" id="list-weekly"></div>
+    <div class="group-title"><h2>Bulanan</h2><span>setiap 30 hari</span></div>
+    <div class="list" id="list-monthly"></div>
+    <p class="note">Centang setelah dikerjakan. Tugas akan muncul lagi sebagai <b>Waktunya</b> saat jadwalnya tiba.</p>
+  </section>
+
+  <section role="tabpanel" id="p-atur" aria-labelledby="tab-atur" hidden>
+    <div class="group-title"><h2>Atur sekali, berlaku seterusnya</h2></div>
+    <div class="list" id="list-once"></div>
+  </section>
+
+  <section role="tabpanel" id="p-baterai" aria-labelledby="tab-baterai" hidden>
+    <div class="card">
+      <div class="top big"><b id="batNow">–</b><span class="pill new" id="batPill">Belum ada data</span></div>
+      <p class="note" id="batAdvice">Buka <b>Pengaturan › Baterai › Kesehatan &amp; Pengisian Daya</b>, lalu catat angka <b>Kapasitas Maksimum</b> di sini setiap bulan.</p>
+      <div class="chart" id="batChart"></div>
+    </div>
+    <form class="card" id="batForm">
+      <div class="row">
+        <label for="batDate">Tanggal<input type="date" id="batDate" required></label>
+        <label for="batPct">Kapasitas maksimum (%)<input type="number" id="batPct" min="50" max="100" inputmode="numeric" placeholder="mis. 87" required></label>
+      </div>
+      <button class="btn" type="submit">Simpan catatan</button>
+    </form>
+    <div class="card"><div class="group-title" style="margin:0"><h2>Riwayat</h2><span id="batSample"></span></div><div class="log" id="batLog"></div></div>
+  </section>
+
+  <section role="tabpanel" id="p-memori" aria-labelledby="tab-memori" hidden>
+    <form class="card" id="memForm">
+      <p class="note">Lihat angkanya di <b>Pengaturan › Umum › Penyimpanan iPhone</b> (bagian atas: "… GB dari … GB digunakan").</p>
+      <div class="row">
+        <label for="memCap">Kapasitas iPhone
+          <select id="memCap"><option>64</option><option selected>128</option><option>256</option><option>512</option><option value="1024">1024 (1 TB)</option></select>
+        </label>
+        <label for="memUsed">Terpakai (GB)<input type="number" id="memUsed" min="0" step="0.1" inputmode="decimal" placeholder="mis. 104,5"></label>
+      </div>
+    </form>
+    <div class="card">
+      <div class="big"><b id="memFree">–</b><span class="pill new" id="memPill">Isi angka di atas</span></div>
+      <div class="bar" id="memBar"><span style="width:0%"></span></div>
+      <p class="note" id="memAdvice">iOS butuh ruang kosong minimal 10–15% agar tetap lancar, terutama untuk pembaruan dan cache aplikasi.</p>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="avoid-h">
+    <h2 id="avoid-h" style="font-size:17px">Hindari</h2>
+    <ul class="avoid">
+      <li>Aplikasi "Cleaner" atau "Booster". iOS tidak mengizinkan aplikasi membersihkan memori aplikasi lain, jadi tidak ada gunanya.</li>
+      <li>Menutup semua aplikasi dari layar pengalih app terus-menerus. iOS mengatur memori sendiri, dan membuka ulang aplikasi justru lebih boros baterai.</li>
+      <li>Mengisi daya sambil bermain game berat atau di tempat panas.</li>
+    </ul>
+  </section>
+
+  <footer class="install" id="installHint">
+    <p><b>Pasang di layar utama:</b> buka halaman ini di Safari, ketuk tombol <b>Bagikan</b>, lalu pilih <b>Tambah ke Layar Utama</b>.</p>
+    <p>Data tersimpan hanya di iPhone ini.</p>
+    <div class="confirm" id="resetBox"><button class="btn ghost" type="button" id="resetBtn">Hapus semua data</button></div>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "rawat-iphone-v1";
+  var DAY = 86400000;
+
+  var TASKS = [
+    { id: "restart", g: "weekly", every: 7, t: "Mulai ulang iPhone", p: ["Tombol samping + Volume", "Geser untuk mematikan"], w: "Membersihkan memori dan proses yang macet." },
+    { id: "appupd", g: "weekly", every: 7, t: "Perbarui semua app", p: ["App Store", "Foto profil", "Perbarui Semua"], w: "Versi baru biasanya lebih cepat dan memperbaiki bug yang boros baterai." },
+    { id: "storage", g: "weekly", every: 7, t: "Cek ruang penyimpanan", p: ["Pengaturan", "Umum", "Penyimpanan iPhone"], w: "Pastikan masih ada ruang kosong 10–15%." },
+    { id: "deleted", g: "weekly", every: 14, t: "Kosongkan \"Baru Dihapus\"", p: ["Foto", "Album", "Baru Dihapus", "Hapus Semua"], w: "Foto yang dihapus masih memakan ruang selama 30 hari." },
+    { id: "safari", g: "monthly", every: 30, t: "Bersihkan data Safari", p: ["Pengaturan", "Apps", "Safari", "Hapus Riwayat dan Data Situs Web"], w: "Cache situs web bisa menumpuk sampai gigabyte." },
+    { id: "wa", g: "monthly", every: 30, t: "Rapikan media WhatsApp", p: ["WhatsApp", "Pengaturan", "Penyimpanan dan Data", "Kelola Penyimpanan"], w: "Hapus video besar dan file yang sering diteruskan." },
+    { id: "dupes", g: "monthly", every: 30, t: "Gabungkan foto duplikat", p: ["Foto", "Album", "Duplikat", "Gabungkan"], w: "Foto dobel dari WhatsApp dan tangkapan layar cepat menumpuk." },
+    { id: "batt", g: "monthly", every: 30, t: "Catat kesehatan baterai", p: ["Pengaturan", "Baterai", "Kesehatan & Pengisian Daya"], w: "Catat angkanya di tab Baterai untuk melihat trennya." },
+    { id: "ios", g: "monthly", every: 30, t: "Pasang pembaruan iOS", p: ["Pengaturan", "Umum", "Pembaruan Perangkat Lunak"], w: "Perbaikan keamanan dan performa dari Apple." },
+    { id: "offload", g: "once", t: "Copot app yang tidak digunakan", p: ["Pengaturan", "Apps", "App Store", "Copot App yang Tidak Digunakan"], w: "App jarang dipakai dilepas otomatis, tetapi datanya tetap tersimpan." },
+    { id: "bgrefresh", g: "once", t: "Batasi refresh di latar belakang", p: ["Pengaturan", "Umum", "Refresh App di Latar Belakang"], w: "Matikan untuk app yang tidak perlu update saat tidak dibuka." },
+    { id: "motion", g: "once", t: "Kurangi Gerakan", p: ["Pengaturan", "Aksesibilitas", "Gerakan", "Kurangi Gerakan"], w: "Animasi lebih ringan, iPhone terasa lebih cepat." },
+    { id: "transp", g: "once", t: "Kurangi Transparansi", p: ["Pengaturan", "Aksesibilitas", "Tampilan & Ukuran Teks", "Kurangi Transparansi"], w: "Efek blur dikurangi sehingga kerja grafis lebih ringan." },
+    { id: "optcharge", g: "once", t: "Pengisian daya dioptimalkan", p: ["Pengaturan", "Baterai", "Kesehatan & Pengisian Daya"], w: "Menunda pengisian di atas 80% saat malam agar baterai awet." },
+    { id: "location", g: "once", t: "Rapikan Layanan Lokasi", p: ["Pengaturan", "Privasi & Keamanan", "Layanan Lokasi"], w: "Ubah ke \"Saat Menggunakan App\" atau \"Tidak Pernah\" untuk app yang tidak perlu." },
+    { id: "notif", g: "once", t: "Matikan notifikasi tak penting", p: ["Pengaturan", "Notifikasi"], w: "Setiap notifikasi menyalakan layar dan menghabiskan baterai." },
+    { id: "dark", g: "once", t: "Gunakan Mode Gelap", p: ["Pengaturan", "Tampilan & Kecerahan", "Gelap"], w: "Lebih hemat baterai di iPhone berlayar OLED." }
+  ];
+
+  var SAMPLE_BAT = [["2026-05-02", 91], ["2026-07-01", 89], ["2026-09-03", 87], ["2026-11-01", 86]];
+
+  var state = load();
+  function load() {
+    var d = { done: {}, bat: [], mem: { cap: "128", used: "" }, tab: "rutin" };
+    try { var s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) { for (var k in d) if (s[k] != null) d[k] = s[k]; } } catch (e) {}
+    return d;
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function today() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  function isoDate(d) { var m = d.getMonth() + 1, dd = d.getDate(); return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (dd < 10 ? "0" : "") + dd; }
+  function parseDate(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  var BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  function fmt(s) { var d = parseDate(s); return d.getDate() + " " + BULAN[d.getMonth()] + " " + d.getFullYear(); }
+
+  function status(t) {
+    var last = state.done[t.id];
+    if (t.g === "once") return last ? { cls: "ok", txt: "Sudah diatur", due: false } : { cls: "new", txt: "Belum", due: true };
+    if (!last) return { cls: "new", txt: "Belum pernah", due: true };
+    var days = Math.round((today() - parseDate(last)) / DAY);
+    if (days >= t.every) return { cls: "due", txt: "Waktunya", due: true };
+    var left = t.every - days;
+    return { cls: "ok", txt: days === 0 ? "Hari ini" : left + " hari lagi", due: false };
+  }
+
+  function renderTasks() {
+    ["weekly", "monthly", "once"].forEach(function (g) {
+      var html = TASKS.filter(function (t) { return t.g === g; }).map(function (t) {
+        var st = status(t);
+        var checked = !st.due ? " checked" : "";
+        var last = state.done[t.id];
+        var lastTxt = last && t.g !== "once" ? " · terakhir " + fmt(last) : "";
+        return '<div class="item"><input class="check" type="checkbox" id="c-' + t.id + '" data-id="' + t.id + '"' + checked +
+          ' aria-label="' + esc(t.t) + '"><div class="body"><div class="top"><h3><label for="c-' + t.id + '" style="color:inherit;font:inherit;display:inline">' + esc(t.t) + '</label></h3>' +
+          '<span class="pill ' + st.cls + '">' + st.txt + '</span></div>' +
+          '<div class="path">' + t.p.map(function (x) { return "<span>" + esc(x) + "</span>"; }).join("<i>›</i>") + '</div>' +
+          '<p class="why">' + esc(t.w) + esc(lastTxt) + '</p></div></div>';
+      }).join("");
+      $("list-" + g).innerHTML = html;
+    });
+    var total = TASKS.length, ok = TASKS.filter(function (t) { return !status(t).due; }).length;
+    var pct = Math.round(ok / total * 100);
+    $("score").textContent = pct + "%";
+    $("ringVal").setAttribute("stroke-dashoffset", (263.9 * (1 - pct / 100)).toFixed(1));
+    var due = total - ok;
+    $("summary").textContent = due === 0 ? "Semua beres. iPhone Anda terawat." : due + " dari " + total + " tugas perlu dikerjakan.";
+  }
+
+  document.addEventListener("change", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-id");
+    if (!id) return;
+    if (e.target.checked) state.done[id] = isoDate(today()); else delete state.done[id];
+    save(); renderTasks();
+  });
+
+  // Baterai
+  function batVerdict(v) {
+    if (v >= 85) return { cls: "ok", txt: "Sehat", adv: "Baterai masih prima. Tidak perlu tindakan." };
+    if (v >= 80) return { cls: "due", txt: "Mulai menurun", adv: "Masih wajar. Aktifkan Pengisian Daya Dioptimalkan dan hindari panas berlebih." };
+    return { cls: "bad", txt: "Perlu ganti", adv: "Di bawah 80%, iOS dapat memperlambat iPhone. Pertimbangkan ganti baterai di servis resmi Apple." };
+  }
+  function renderBat() {
+    var real = state.bat.slice().sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+    var isSample = real.length === 0;
+    var data = isSample ? SAMPLE_BAT : real;
+    $("batSample").innerHTML = isSample ? '<span class="sample">Contoh, ganti dengan data Anda</span>' : "";
+    var last = data[data.length - 1][1];
+    var v = batVerdict(last);
+    $("batNow").textContent = last + "%";
+    $("batPill").className = "pill " + (isSample ? "new" : v.cls);
+    $("batPill").textContent = isSample ? "Contoh" : v.txt;
+    $("batAdvice").innerHTML = isSample
+      ? 'Buka <b>Pengaturan › Baterai › Kesehatan &amp; Pengisian Daya</b>, lalu catat angka <b>Kapasitas Maksimum</b> di sini setiap bulan.'
+      : esc(v.adv);
+    // grafik: sumbu y 70–100%, garis batas 80%
+    var W = 320, H = 130, L = 30, R = 10, T = 10, B = 22, lo = 70, hi = 100;
+    function y(p) { return T + (hi - Math.max(lo, Math.min(hi, p))) / (hi - lo) * (H - T - B); }
+    function x(i) { return data.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (data.length - 1); }
+    var pts = data.map(function (d, i) { return x(i).toFixed(1) + "," + y(d[1]).toFixed(1); });
+    var g = "";
+    [70, 80, 90, 100].forEach(function (p) {
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(p) + '" y2="' + y(p) + '" stroke="var(--line)" stroke-width="1"' + (p === 80 ? ' stroke-dasharray="4 3" style="stroke:var(--crit)"' : "") + '/>';
+      g += '<text x="' + (L - 6) + '" y="' + (y(p) + 3) + '" text-anchor="end">' + p + '</text>';
+    });
+    var area = "M" + x(0).toFixed(1) + "," + (H - B) + " L" + pts.join(" L") + " L" + x(data.length - 1).toFixed(1) + "," + (H - B) + " Z";
+    g += '<path d="' + area + '" fill="var(--accent-soft)" opacity=".8"/>';
+    g += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    var lp = pts[pts.length - 1].split(",");
+    g += '<circle cx="' + lp[0] + '" cy="' + lp[1] + '" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>';
+    g += '<text x="' + x(0) + '" y="' + (H - 6) + '" text-anchor="' + (data.length === 1 ? "middle" : "start") + '">' + esc(fmt(data[0][0])) + '</text>';
+    if (data.length > 1) g += '<text x="' + x(data.length - 1) + '" y="' + (H - 6) + '" text-anchor="end">' + esc(fmt(data[data.length - 1][0])) + '</text>';
+    $("batChart").innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Grafik kesehatan baterai; garis putus-putus merah adalah batas 80%">' + g + '</svg>';
+    $("batLog").innerHTML = data.slice().reverse().map(function (d) {
+      var idx = isSample ? -1 : state.bat.indexOf(real[real.indexOf(d)]);
+      return '<div><span>' + esc(fmt(d[0])) + '</span><span><b>' + d[1] + '%</b>' +
+        (isSample ? "" : ' <button type="button" data-del="' + idx + '" aria-label="Hapus catatan ' + esc(fmt(d[0])) + '">×</button>') + '</span></div>';
+    }).join("");
+  }
+  $("batDate").value = isoDate(today());
+  $("batForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var d = $("batDate").value, p = parseInt($("batPct").value, 10);
+    if (!d || !(p >= 50 && p <= 100)) return;
+    state.bat = state.bat.filter(function (r) { return r[0] !== d; });
+    state.bat.push([d, p]);
+    state.done.batt = isoDate(today());
+    $("batPct").value = "";
+    save(); renderBat(); renderTasks();
+  });
+  $("batLog").addEventListener("click", function (e) {
+    var i = e.target.getAttribute("data-del");
+    if (i == null || i < 0) return;
+    state.bat.splice(+i, 1); save(); renderBat();
+  });
+
+  // Memori
+  function renderMem() {
+    var cap = parseFloat(state.mem.cap), used = parseFloat(String(state.mem.used).replace(",", "."));
+    $("memCap").value = state.mem.cap; $("memUsed").value = state.mem.used;
+    var bar = $("memBar");
+    if (!(used >= 0) || used > cap || state.mem.used === "") {
+      $("memFree").textContent = "–"; $("memPill").className = "pill new"; $("memPill").textContent = "Isi angka di atas";
+      bar.className = "bar"; bar.firstChild.style.width = "0%"; return;
+    }
+    var freePct = (cap - used) / cap * 100, freeGb = cap - used;
+    $("memFree").textContent = freePct.toFixed(0) + "% kosong";
+    var cls, txt, adv;
+    if (freePct >= 15) { cls = "ok"; txt = "Lega"; adv = "Ruang kosong cukup (" + freeGb.toFixed(1) + " GB). Pertahankan."; }
+    else if (freePct >= 10) { cls = "due"; txt = "Mulai penuh"; adv = "Sisa " + freeGb.toFixed(1) + " GB. Kerjakan tugas Baru Dihapus, WhatsApp, dan Duplikat di tab Rutin."; }
+    else { cls = "bad"; txt = "Hampir penuh"; adv = "Sisa " + freeGb.toFixed(1) + " GB. iPhone bisa melambat dan gagal update. Pindahkan foto/video ke iCloud atau komputer, lalu hapus app yang tak dipakai."; }
+    $("memPill").className = "pill " + cls; $("memPill").textContent = txt; $("memAdvice").textContent = adv;
+    bar.className = "bar" + (cls === "due" ? " warn" : cls === "bad" ? " crit" : "");
+    bar.firstChild.style.width = Math.min(100, used / cap * 100).toFixed(1) + "%";
+  }
+  $("memCap").addEventListener("change", function () { state.mem.cap = this.value; save(); renderMem(); });
+  $("memUsed").addEventListener("input", function () { state.mem.used = this.value; save(); renderMem(); });
+  $("memForm").addEventListener("submit", function (e) { e.preventDefault(); });
+
+  // Tab
+  function showTab(name) {
+    document.querySelectorAll("[role=tab]").forEach(function (b) {
+      var on = b.getAttribute("data-tab") === name;
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.tabIndex = on ? 0 : -1;
+      $("p-" + b.getAttribute("data-tab")).hidden = !on;
+    });
+    state.tab = name; save();
+  }
+  document.querySelector(".tabs").addEventListener("click", function (e) {
+    var t = e.target.getAttribute("data-tab"); if (t) showTab(t);
+  });
+
+  // Reset dengan konfirmasi di halaman
+  $("resetBox").addEventListener("click", function (e) {
+    if (e.target.id === "resetBtn") {
+      this.innerHTML = '<span>Hapus semua centang dan catatan?</span><button class="btn ghost" type="button" id="resetYes">Ya, hapus</button><button class="btn ghost" type="button" id="resetNo" style="color:var(--muted)">Batal</button>';
+    } else if (e.target.id === "resetYes") {
+      state = { done: {}, bat: [], mem: { cap: "128", used: "" }, tab: state.tab }; save();
+      renderTasks(); renderBat(); renderMem();
+      this.innerHTML = '<button class="btn ghost" type="button" id="resetBtn">Hapus semua data</button><span>Data dihapus.</span>';
+    } else if (e.target.id === "resetNo") {
+      this.innerHTML = '<button class="btn ghost" type="button" id="resetBtn">Hapus semua data</button>';
+    }
+  });
+
+  // Sudah dipasang sebagai app? Sembunyikan petunjuk pemasangan.
+  if (window.navigator.standalone || (window.matchMedia && matchMedia("(display-mode: standalone)").matches)) {
+    $("installHint").firstElementChild.hidden = true;
+  }
+
+  showTab(state.tab || "rutin");
+  renderTasks(); renderBat(); renderMem();
+
+  if ("serviceWorker" in navigator && location.protocol === "https:" && document.querySelector('link[rel="manifest"]')) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
