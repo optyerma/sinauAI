@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hapus Latar</title>
+<meta name="description" content="Hapus latar belakang foto dan pangkas orangnya saja. Diproses di perangkatmu, foto tidak diunggah.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hapus Latar">
+<meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Tata letak: ponsel = satu kolom (pratinjau di atas, panel pengaturan di bawah);
+   layar lebar = pratinjau besar di kiri, panel di kanan yang tetap terlihat. */
+:root {
+  --bg: #F3F1EC;
+  --surface: #FFFFFF;
+  --ink: #1B1B1F;
+  --muted: #64646E;
+  --line: #E0DDD5;
+  --accent: #3D52D5;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E3E7FB;
+  --erase: #C2362B;
+  --erase-soft: #F9E0DD;
+  --check-a: #FFFFFF;
+  --check-b: #E6E3DC;
+  --font-body: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121214; --surface: #1C1C20; --ink: #ECECF1; --muted: #9C9CA8; --line: #2D2D33;
+    --accent: #8B9BFF; --accent-ink: #10132B; --accent-soft: #232A52; --erase: #F2877C; --erase-soft: #3D1C19;
+    --check-a: #2A2A30; --check-b: #222227; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121214; --surface: #1C1C20; --ink: #ECECF1; --muted: #9C9CA8; --line: #2D2D33;
+  --accent: #8B9BFF; --accent-ink: #10132B; --accent-soft: #232A52; --erase: #F2877C; --erase-soft: #3D1C19;
+  --check-a: #2A2A30; --check-b: #222227; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); -webkit-tap-highlight-color: transparent; }
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 18px) calc(env(safe-area-inset-bottom, 0px) + 40px);
+  display: grid; gap: 18px;
+}
+h1, h2 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+header h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+header p { color: var(--muted); margin-top: 2px; max-width: 60ch; }
+button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Area pilih foto */
+.drop {
+  border: 2px dashed var(--line); border-radius: 20px; background: var(--surface);
+  display: grid; place-items: center; text-align: center; gap: 14px; padding: 56px 20px; min-height: 52vh;
+  transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .art { width: 132px; height: 96px; }
+.drop h2 { font-size: 20px; font-weight: 700; }
+.drop .hint { color: var(--muted); font-size: 14px; }
+.drop .tips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.drop .tips span { font-size: 12.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+
+.btn {
+  font: 700 15px var(--font-body); border: 0; border-radius: 11px; padding: 12px 18px;
+  background: var(--accent); color: var(--accent-ink); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; justify-content: center;
+}
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+
+/* Editor */
+.editor { display: grid; gap: 18px; align-items: start; }
+@media (min-width: 900px) { .editor { grid-template-columns: minmax(0, 1fr) 340px; } .panel { position: sticky; top: 16px; } }
+
+.stage-wrap { display: grid; gap: 10px; min-width: 0; }
+.stage {
+  position: relative; border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden;
+  background-color: var(--check-a);
+  background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0);
+  background-size: 20px 20px;
+  display: grid; place-items: center; min-height: 260px; padding: 12px;
+}
+.stage canvas { display: block; max-width: 100%; max-height: 70vh; width: auto; height: auto; touch-action: manipulation; }
+.stage.painting canvas { touch-action: none; cursor: none; }
+.cursor { position: absolute; pointer-events: none; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.55); transform: translate(-50%, -50%); display: none; }
+.stage.painting .cursor.on { display: block; }
+.busy {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 12px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  font-weight: 600; text-align: center; padding: 20px;
+}
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.busy small { display: block; font-weight: 500; color: var(--muted); font-size: 13px; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-grid; grid-auto-flow: column; background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; }
+.seg button { font: 600 13px var(--font-body); color: var(--muted); background: none; border: 0; border-radius: 8px; padding: 7px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.seg button svg { width: 16px; height: 16px; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button[data-tool="erase"][aria-pressed="true"] { background: var(--erase-soft); color: var(--erase); }
+.icon-btn { font: 600 13px var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 8px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.icon-btn:disabled { opacity: .45; cursor: default; }
+.icon-btn svg { width: 16px; height: 16px; }
+.brush { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-weight: 600; flex: 1 1 160px; }
+.brush input { flex: 1; }
+.meta { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.meta b { font: 600 13px var(--font-data); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Panel pengaturan */
+.panel { display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 12px; }
+.card h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sw { display: grid; gap: 4px; justify-items: center; font-size: 11.5px; font-weight: 600; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; position: relative; }
+.sw i { width: 100%; aspect-ratio: 1.4; border-radius: 10px; border: 1px solid var(--line); display: block; }
+.sw[aria-pressed="true"] i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.sw[aria-pressed="true"] { color: var(--ink); }
+.sw input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.i-trans { background-color: #fff; background-image: conic-gradient(#d9d6cf 25%, transparent 0 50%, #d9d6cf 0 75%, transparent 0); background-size: 10px 10px; }
+.i-blur { background: linear-gradient(135deg, #8fb4c9, #d7c49e 55%, #9fae86); filter: saturate(.9); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 13px var(--font-body); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip small { font-weight: 500; opacity: .8; }
+.field { display: grid; gap: 4px; }
+.field .lbl { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.field .lbl output { font: 500 12.5px var(--font-data); color: var(--muted); }
+.field p { font-size: 12.5px; color: var(--muted); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 4px 0; }
+.toggle { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; cursor: pointer; }
+.toggle b { font-size: 14px; font-weight: 600; }
+.toggle span { grid-column: 1; font-size: 12.5px; color: var(--muted); }
+.toggle input { grid-row: 1 / span 2; grid-column: 2; appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; margin: 0; transition: background .15s; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.toggle input:checked { background: var(--accent); }
+.toggle input:checked::after { transform: translateX(18px); }
+.toggle:focus-within { outline: none; }
+.toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dim { opacity: .45; pointer-events: none; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .btn.wide { grid-column: 1 / -1; }
+.privacy { font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: start; }
+.privacy svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.err { background: var(--erase-soft); color: var(--erase); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 50; box-shadow: 0 6px 24px rgba(0,0,0,.2); }
+@media (max-width: 420px) { .swatches { grid-template-columns: repeat(4, 1fr); gap: 6px; } .seg button span { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 2s !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Hapus Latar</h1>
+    <p>Hapus latar belakang foto dan pangkas orangnya saja: untuk pas foto, foto profil, atau stiker.</p>
+  </header>
+
+  <div id="error" class="err" role="alert" hidden></div>
+
+  <!-- Langkah 1: pilih foto -->
+  <label id="drop" class="drop" for="file">
+    <svg class="art" viewBox="0 0 132 96" aria-hidden="true">
+      <rect x="1" y="1" width="130" height="94" rx="12" fill="none" stroke="currentColor" stroke-opacity=".18" stroke-width="2" stroke-dasharray="6 5"/>
+      <circle cx="66" cy="36" r="13" fill="var(--accent)"/>
+      <path d="M38 95c2-20 13-32 28-32s26 12 28 32z" fill="var(--accent)"/>
+    </svg>
+    <div>
+      <h2>Pilih foto berisi orang</h2>
+      <p class="hint">Ketuk untuk memilih, tarik foto ke sini, atau tempel (Ctrl/⌘ V).</p>
+    </div>
+    <span class="btn" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+      Pilih foto
+    </span>
+    <div class="tips"><span>JPG · PNG · HEIC · WebP</span><span>Diproses di perangkat</span></div>
+    <input id="file" type="file" accept="image/*" hidden>
+  </label>
+
+  <!-- Langkah 2: sunting & unduh -->
+  <div id="editor" class="editor" hidden>
+    <div class="stage-wrap">
+      <div id="stage" class="stage">
+        <canvas id="view" aria-label="Pratinjau hasil"></canvas>
+        <div id="cursor" class="cursor"></div>
+        <div id="busy" class="busy" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <div id="busyText">Memproses…</div>
+        </div>
+      </div>
+      <div class="toolbar" role="toolbar" aria-label="Alat koreksi">
+        <div class="seg" role="group" aria-label="Kuas">
+          <button type="button" data-tool="view" aria-pressed="true" title="Lihat saja">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Lihat</span></button>
+          <button type="button" data-tool="erase" aria-pressed="false" title="Hapus bagian yang tersisa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H9L4 15a2 2 0 0 1 0-3l9-9a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L12 20"/><path d="M7 9l8 8"/></svg><span>Hapus</span></button>
+          <button type="button" data-tool="restore" aria-pressed="false" title="Kembalikan bagian yang ikut terhapus">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3l3 3-11 11-4 1 1-4z"/><path d="M3 21h8"/></svg><span>Kembalikan</span></button>
+        </div>
+        <label class="brush" id="brushField">Kuas
+          <input id="brushSize" type="range" min="6" max="120" value="36" aria-label="Ukuran kuas">
+        </label>
+        <button type="button" class="icon-btn" id="undo" disabled title="Urungkan coretan terakhir">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>Urungkan</button>
+        <button type="button" class="icon-btn" id="compare" title="Tahan untuk melihat foto asli">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Tahan: asli</button>
+      </div>
+      <div class="meta"><span>Ukuran hasil: <b id="outSize">–</b></span><span id="hint">Pilih Hapus / Kembalikan lalu coret di gambar untuk merapikan.</span></div>
+    </div>
+
+    <aside class="panel">
+      <section class="card" aria-labelledby="h-bg">
+        <h2 id="h-bg">Latar</h2>
+        <div class="swatches" id="swatches">
+          <button type="button" class="sw" data-bg="transparent" aria-pressed="true"><i class="i-trans"></i>Transparan</button>
+          <button type="button" class="sw" data-bg="#FFFFFF" aria-pressed="false"><i style="background:#FFFFFF"></i>Putih</button>
+          <button type="button" class="sw" data-bg="#CE1126" aria-pressed="false"><i style="background:#CE1126"></i>Merah</button>
+          <button type="button" class="sw" data-bg="#1D5FBF" aria-pressed="false"><i style="background:#1D5FBF"></i>Biru</button>
+          <button type="button" class="sw" data-bg="#D9D9D9" aria-pressed="false"><i style="background:#D9D9D9"></i>Abu-abu</button>
+          <button type="button" class="sw" data-bg="#111111" aria-pressed="false"><i style="background:#111111"></i>Hitam</button>
+          <button type="button" class="sw" data-bg="blur" aria-pressed="false"><i class="i-blur"></i>Buram</button>
+          <button type="button" class="sw" data-bg="custom" aria-pressed="false" id="customSw"><i id="customChip" style="background:conic-gradient(#e44,#fb3,#4c6,#39f,#a4f,#e44)"></i>Pilih…<input type="color" id="customColor" value="#F2C94C" aria-label="Warna latar kustom"></button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-crop">
+        <h2 id="h-crop">Pangkas</h2>
+        <label class="toggle"><b>Pangkas ke orang</b><span>Buang area kosong di sekitar orang.</span><input type="checkbox" id="autoCrop" checked></label>
+        <div id="cropOpts" class="field" style="gap:10px">
+          <div class="chips" id="ratios" role="group" aria-label="Rasio">
+            <button type="button" class="chip" data-ratio="0" aria-pressed="true">Bebas</button>
+            <button type="button" class="chip" data-ratio="1" aria-pressed="false">1:1</button>
+            <button type="button" class="chip" data-ratio="0.75" aria-pressed="false">3:4 <small>pas foto</small></button>
+            <button type="button" class="chip" data-ratio="0.8" aria-pressed="false">4:5</button>
+            <button type="button" class="chip" data-ratio="0.6667" aria-pressed="false">2:3</button>
+            <button type="button" class="chip" data-ratio="0.5625" aria-pressed="false">9:16</button>
+          </div>
+          <div class="field">
+            <div class="lbl"><label for="pad">Jarak tepi</label><output id="padOut">6%</output></div>
+            <input id="pad" type="range" min="0" max="40" value="6">
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-edge">
+        <h2 id="h-edge">Tepi</h2>
+        <label class="toggle"><b>Rapikan tepi</b><span>Ikuti kontur rambut &amp; baju lebih rapat.</span><input type="checkbox" id="refine" checked></label>
+        <label class="toggle"><b>Hanya orang utama</b><span>Buang orang lain yang ikut terdeteksi.</span><input type="checkbox" id="mainOnly"></label>
+        <div class="field">
+          <div class="lbl"><label for="thresh">Ambang</label><output id="threshOut">50</output></div>
+          <input id="thresh" type="range" min="10" max="90" value="50">
+          <p>Geser ke kanan untuk membuang lebih banyak latar, ke kiri untuk menyimpan lebih banyak.</p>
+        </div>
+        <div class="field">
+          <div class="lbl"><label for="soft">Kehalusan tepi</label><output id="softOut">25</output></div>
+          <input id="soft" type="range" min="2" max="60" value="25">
+        </div>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="btn wide" id="download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
+          Unduh PNG</button>
+        <button type="button" class="btn secondary" id="share" hidden>Bagikan</button>
+        <button type="button" class="btn secondary" id="another">Ganti foto</button>
+      </div>
+      <p class="privacy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        Foto diproses di perangkatmu dan tidak dikirim ke server. Model AI (±16 MB) diunduh sekali saat pertama dipakai.</p>
+    </aside>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script type="module">
+// ===== Konfigurasi =====
+const TASKS_VERSION = "0.10.14";
+const CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VERSION}`;
+// Model segmentasi multikelas (latar, rambut, kulit tubuh, kulit wajah, pakaian, aksesori).
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/1/selfie_multiclass_256x256.tflite";
+const MAX_SIDE = 2048;        // sisi terpanjang gambar kerja (dan hasil)
+const UNDO_LIMIT = 20;
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  drop: $("drop"), file: $("file"), editor: $("editor"), error: $("error"),
+  stage: $("stage"), view: $("view"), cursor: $("cursor"), busy: $("busy"), busyText: $("busyText"),
+  brushSize: $("brushSize"), undo: $("undo"), compare: $("compare"), outSize: $("outSize"),
+  autoCrop: $("autoCrop"), cropOpts: $("cropOpts"), pad: $("pad"), padOut: $("padOut"),
+  refine: $("refine"), mainOnly: $("mainOnly"), thresh: $("thresh"), threshOut: $("threshOut"),
+  soft: $("soft"), softOut: $("softOut"), download: $("download"), share: $("share"), another: $("another"),
+  customColor: $("customColor"), customChip: $("customChip"), toast: $("toast"),
+};
+
+// ===== Status =====
+const S = {
+  W: 0, H: 0, name: "foto",
+  srcCanvas: null, srcData: null,  // gambar kerja
+  rawProb: null,                   // Float32 peluang "orang" dari model
+  prob: null,                      // setelah rapikan tepi / orang utama
+  base: null,                      // Uint8 alpha dari ambang + kehalusan
+  add: null, sub: null,            // Uint8 coretan manual
+  cutCanvas: null, cutCtx: null, cutData: null,
+  blurCanvas: null,
+  crop: { x: 0, y: 0, w: 0, h: 0 },
+  bg: "transparent", ratio: 0, tool: "view",
+  undo: [], comparing: false,
+};
+
+let segmenterPromise = null;
+function getSegmenter() {
+  if (!segmenterPromise) {
+    segmenterPromise = (async () => {
+      const { FilesetResolver, ImageSegmenter } = await import(`${CDN}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${CDN}/wasm`);
+      const opts = (delegate) => ({
+        baseOptions: { modelAssetPath: MODEL_URL, delegate },
+        runningMode: "IMAGE", outputCategoryMask: false, outputConfidenceMasks: true,
+      });
+      try { return await ImageSegmenter.createFromOptions(fileset, opts("GPU")); }
+      catch (e) { console.warn("GPU tidak tersedia, pakai CPU", e); return await ImageSegmenter.createFromOptions(fileset, opts("CPU")); }
+    })();
+    segmenterPromise.catch(() => { segmenterPromise = null; });
+  }
+  return segmenterPromise;
+}
+
+// ===== Util UI =====
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+function busy(text) {
+  if (text) { els.busyText.textContent = text; els.busy.hidden = false; }
+  else els.busy.hidden = true;
+}
+function showError(msg) { els.error.textContent = msg; els.error.hidden = !msg; }
+let toastTimer;
+function toast(msg) {
+  els.toast.textContent = msg; els.toast.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (els.toast.hidden = true), 2200);
+}
+function setPressed(group, el) { group.querySelectorAll("[aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", String(b === el))); }
+
+// ===== Memuat foto =====
+async function decode(file) {
+  try { return await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.src = url; await img.decode(); return img;
+    } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  }
+}
+
+async function loadFile(file) {
+  if (!file || !file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name || "")) {
+    showError("Berkas itu bukan gambar. Pilih foto JPG, PNG, HEIC, atau WebP."); return;
+  }
+  showError("");
+  let img;
+  try { img = await decode(file); }
+  catch { showError("Foto tidak bisa dibuka di browser ini. Coba simpan ulang sebagai JPG atau PNG."); return; }
+
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  const k = Math.min(1, MAX_SIDE / Math.max(iw, ih));
+  const W = Math.max(1, Math.round(iw * k)), H = Math.max(1, Math.round(ih * k));
+  Object.assign(S, { W, H, name: (file.name || "foto").replace(/\.[^.]+$/, "") || "foto", undo: [], rawProb: null, prob: null });
+  els.undo.disabled = true;
+
+  S.srcCanvas = makeCanvas(W, H);
+  const sctx = S.srcCanvas.getContext("2d", { willReadFrequently: true });
+  sctx.drawImage(img, 0, 0, W, H);
+  if (img.close) img.close();
+  S.srcData = sctx.getImageData(0, 0, W, H);
+
+  const n = W * H, d = S.srcData.data;
+  S.add = new Uint8Array(n); S.sub = new Uint8Array(n); S.base = new Uint8Array(n);
+  S.cutCanvas = makeCanvas(W, H);
+  S.cutCtx = S.cutCanvas.getContext("2d");
+  S.cutData = new ImageData(new Uint8ClampedArray(d), W, H);
+  S.blurCanvas = null;
+  S.crop = { x: 0, y: 0, w: W, h: H };
+
+  els.drop.hidden = true; els.editor.hidden = false;
+  // Tampilkan foto asli dulu selagi model bekerja.
+  els.view.width = W; els.view.height = H;
+  els.view.getContext("2d").drawImage(S.srcCanvas, 0, 0);
+  els.outSize.textContent = "–";
+
+  try {
+    busy(segmenterPromise ? "Mendeteksi orang…" : "Mengunduh model AI…");
+    const seg = await getSegmenter();
+    busy("Mendeteksi orang…"); await nextFrame();
+    S.rawProb = await segmentPerson(seg);
+    if (!S.rawProb) {
+      busy(); showError("Tidak ada orang yang terdeteksi di foto ini. Coba foto lain dengan orang yang terlihat jelas.");
+      return;
+    }
+    busy("Merapikan tepi…"); await nextFrame();
+    rebuildProb();
+    rebuildBase();
+    computeCrop();
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    showError(navigator.onLine === false
+      ? "Perlu internet saat pertama kali untuk mengunduh model AI. Sambungkan lalu coba lagi."
+      : "Gagal memuat model AI. Periksa koneksi internet lalu coba lagi.");
+    els.drop.hidden = false; els.editor.hidden = true;
+  } finally { busy(); }
+}
+
+function makeCanvas(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
+
+// ===== Segmentasi =====
+// Peluang orang = 1 − peluang latar (kelas 0).
+function runModel(seg, canvas) {
+  const res = seg.segment(canvas);
+  try {
+    const m = res.confidenceMasks[0];
+    const bg = m.getAsFloat32Array();
+    const out = new Float32Array(bg.length);
+    for (let i = 0; i < bg.length; i++) out[i] = 1 - bg[i];
+    return resample(out, m.width, m.height, canvas.width, canvas.height);
+  } finally { res.close(); }
+}
+
+// Dua tahap: deteksi di seluruh foto, lalu ulangi pada potongan di sekitar orang
+// agar orang yang kecil di dalam bingkai mendapat detail tepi lebih baik.
+async function segmentPerson(seg) {
+  const { W, H } = S;
+  const p1 = runModel(seg, S.srcCanvas);
+  const bb = bbox(p1, W, H, 0.5);
+  if (!bb) return null;
+  const px = Math.round(bb.w * 0.15 + 8), py = Math.round(bb.h * 0.15 + 8);
+  const x0 = Math.max(0, bb.x - px), y0 = Math.max(0, bb.y - py);
+  const x1 = Math.min(W, bb.x + bb.w + px), y1 = Math.min(H, bb.y + bb.h + py);
+  const cw = x1 - x0, ch = y1 - y0;
+  if (cw * ch > W * H * 0.6) return p1;
+  await nextFrame();
+  const c = makeCanvas(cw, ch);
+  c.getContext("2d").drawImage(S.srcCanvas, x0, y0, cw, ch, 0, 0, cw, ch);
+  const p2 = runModel(seg, c);
+  // Tempel hasil tahap 2; di pinggir potongan dicampur halus dengan tahap 1.
+  const blend = Math.max(4, Math.round(Math.min(cw, ch) * 0.04));
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) {
+      let t = 1;
+      if (x0 > 0) t = Math.min(t, x / blend);
+      if (y0 > 0) t = Math.min(t, y / blend);
+      if (x1 < W) t = Math.min(t, (cw - 1 - x) / blend);
+      if (y1 < H) t = Math.min(t, (ch - 1 - y) / blend);
+      t = Math.max(0, Math.min(1, t));
+      const i = (y + y0) * W + x + x0;
+      p1[i] = p1[i] * (1 - t) + p2[y * cw + x] * t;
+    }
+  }
+  return p1;
+}
+
+function resample(src, sw, sh, dw, dh) {
+  if (sw === dw && sh === dh) return src;
+  const out = new Float32Array(dw * dh);
+  const fx = sw / dw, fy = sh / dh;
+  for (let y = 0; y < dh; y++) {
+    const syf = Math.min(sh - 1, Math.max(0, (y + 0.5) * fy - 0.5));
+    const y0 = Math.floor(syf), y1 = Math.min(sh - 1, y0 + 1), wy = syf - y0;
+    for (let x = 0; x < dw; x++) {
+      const sxf = Math.min(sw - 1, Math.max(0, (x + 0.5) * fx - 0.5));
+      const x0 = Math.floor(sxf), x1 = Math.min(sw - 1, x0 + 1), wx = sxf - x0;
+      const a = src[y0 * sw + x0] * (1 - wx) + src[y0 * sw + x1] * wx;
+      const b = src[y1 * sw + x0] * (1 - wx) + src[y1 * sw + x1] * wx;
+      out[y * dw + x] = a * (1 - wy) + b * wy;
+    }
+  }
+  return out;
+}
+
+// Kotak pembatas area di atas ambang; baris/kolom dengan sedikit piksel diabaikan (bintik).
+function bbox(arr, W, H, thr) {
+  const rows = new Uint32Array(H), cols = new Uint32Array(W);
+  let total = 0;
+  for (let y = 0; y < H; y++) {
+    const o = y * W;
+    for (let x = 0; x < W; x++) if (arr[o + x] > thr) { rows[y]++; cols[x]++; total++; }
+  }
+  if (total < W * H * 0.002) return null;
+  const minR = Math.max(1, W * 0.004), minC = Math.max(1, H * 0.004);
+  let y0 = 0, y1 = H - 1, x0 = 0, x1 = W - 1;
+  while (y0 < H && rows[y0] < minR) y0++;
+  while (y1 > y0 && rows[y1] < minR) y1--;
+  while (x0 < W && cols[x0] < minC) x0++;
+  while (x1 > x0 && cols[x1] < minC) x1--;
+  if (y0 >= H || x0 >= W) return null;
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+// ===== Rapikan tepi: fast guided filter (He & Sun) dengan kecerahan foto sebagai penuntun =====
+function boxMean(src, w, h, r, out, tmp) {
+  for (let y = 0; y < h; y++) {           // horizontal
+    const o = y * w; let s = 0;
+    for (let x = 0; x <= Math.min(r, w - 1); x++) s += src[o + x];
+    for (let x = 0; x < w; x++) {
+      const lo = Math.max(0, x - r), hi = Math.min(w - 1, x + r);
+      tmp[o + x] = s / (hi - lo + 1);
+      if (x + r + 1 < w) s += src[o + x + r + 1];
+      if (x - r >= 0) s -= src[o + x - r];
+    }
+  }
+  for (let x = 0; x < w; x++) {           // vertikal
+    let s = 0;
+    for (let y = 0; y <= Math.min(r, h - 1); y++) s += tmp[y * w + x];
+    for (let y = 0; y < h; y++) {
+      const lo = Math.max(0, y - r), hi = Math.min(h - 1, y + r);
+      out[y * w + x] = s / (hi - lo + 1);
+      if (y + r + 1 < h) s += tmp[(y + r + 1) * w + x];
+      if (y - r >= 0) s -= tmp[(y - r) * w + x];
+    }
+  }
+  return out;
+}
+
+function downsample(src, W, H, s) {
+  const w = Math.ceil(W / s), h = Math.ceil(H / s), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let sum = 0, c = 0;
+    for (let yy = y * s; yy < Math.min(H, y * s + s); yy++)
+      for (let xx = x * s; xx < Math.min(W, x * s + s); xx++) { sum += src[yy * W + xx]; c++; }
+    out[y * w + x] = sum / c;
+  }
+  return { a: out, w, h };
+}
+
+// Penuntun berwarna (RGB) agar latar dan baju dengan kecerahan mirip tetap terpisah.
+function guidedFilter(rgb, p, W, H) {
+  const s = Math.max(1, Math.round(Math.max(W, H) / 640));       // kerja di resolusi ±640 px
+  const r = Math.max(2, Math.round(Math.max(W, H) / 110 / s));
+  const eps = 1e-3;
+  const N = W * H;
+  const ch = [0, 1, 2].map((c) => { const a = new Float32Array(N); for (let i = 0; i < N; i++) a[i] = rgb[i * 4 + c] / 255; return a; });
+  const [R, G, B] = ch.map((a) => downsample(a, W, H, s).a);
+  const { a: pl, w, h } = downsample(p, W, H, s);
+  const n = w * h, tmp = new Float32Array(n);
+  const mean = (src) => boxMean(src, w, h, r, new Float32Array(n), tmp);
+  const prod = (a, b) => { const o = new Float32Array(n); for (let i = 0; i < n; i++) o[i] = a[i] * b[i]; return mean(o); };
+  const mR = mean(R), mG = mean(G), mB = mean(B), mp = mean(pl);
+  const mRR = prod(R, R), mRG = prod(R, G), mRB = prod(R, B), mGG = prod(G, G), mGB = prod(G, B), mBB = prod(B, B);
+  const mRp = prod(R, pl), mGp = prod(G, pl), mBp = prod(B, pl);
+  const aR = new Float32Array(n), aG = new Float32Array(n), aB = new Float32Array(n), bb = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const rr = mRR[i] - mR[i] * mR[i] + eps, rg = mRG[i] - mR[i] * mG[i], rb = mRB[i] - mR[i] * mB[i];
+    const gg = mGG[i] - mG[i] * mG[i] + eps, gb = mGB[i] - mG[i] * mB[i], b2 = mBB[i] - mB[i] * mB[i] + eps;
+    const cR = mRp[i] - mR[i] * mp[i], cG = mGp[i] - mG[i] * mp[i], cB = mBp[i] - mB[i] * mp[i];
+    // Invers matriks kovarians 3×3 (simetris).
+    const i00 = gg * b2 - gb * gb, i01 = gb * rb - rg * b2, i02 = rg * gb - gg * rb;
+    const i11 = rr * b2 - rb * rb, i12 = rb * rg - rr * gb, i22 = rr * gg - rg * rg;
+    const det = rr * i00 + rg * i01 + rb * i02;
+    const ar = (i00 * cR + i01 * cG + i02 * cB) / det;
+    const ag = (i01 * cR + i11 * cG + i12 * cB) / det;
+    const ab = (i02 * cR + i12 * cG + i22 * cB) / det;
+    aR[i] = ar; aG[i] = ag; aB[i] = ab; bb[i] = mp[i] - ar * mR[i] - ag * mG[i] - ab * mB[i];
+  }
+  const up = (a) => resample(mean(a), w, h, W, H);
+  const AR = up(aR), AG = up(aG), AB = up(aB), BB = up(bb);
+  const q = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const pr = p[i];
+    // Bagian yang sudah yakin dari model tidak diubah; perapian hanya di daerah tepi.
+    if (pr > 0.97 || pr < 0.03) { q[i] = pr; continue; }
+    const v = AR[i] * ch[0][i] + AG[i] * ch[1][i] + AB[i] * ch[2][i] + BB[i];
+    q[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+  return q;
+}
+
+// ===== Hanya orang utama: buang komponen selain yang terbesar =====
+function keepMain(prob, W, H) {
+  const s = Math.max(1, Math.round(Math.max(W, H) / 400));
+  const { a: low, w, h } = downsample(prob, W, H, s);
+  const lab = new Int32Array(w * h).fill(-1);
+  const sizes = [];
+  const stack = [];
+  for (let i = 0; i < w * h; i++) {
+    if (low[i] <= 0.5 || lab[i] >= 0) continue;
+    const id = sizes.length; let size = 0;
+    lab[i] = id; stack.push(i);
+    while (stack.length) {
+      const k = stack.pop(); size++;
+      const x = k % w, y = (k - x) / w;
+      const nb = [x > 0 ? k - 1 : -1, x < w - 1 ? k + 1 : -1, y > 0 ? k - w : -1, y < h - 1 ? k + w : -1];
+      for (const m of nb) if (m >= 0 && lab[m] < 0 && low[m] > 0.5) { lab[m] = id; stack.push(m); }
+    }
+    sizes.push(size);
+  }
+  if (sizes.length < 2) return prob;
+  const main = sizes.indexOf(Math.max(...sizes));
+  // Tandai sel milik orang lain lalu lebarkan 2 sel (tanpa menyentuh orang utama) agar tepinya ikut terbuang.
+  let rm = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (lab[i] >= 0 && lab[i] !== main) rm[i] = 1;
+  for (let pass = 0; pass < 2; pass++) {
+    const nx = rm.slice();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (rm[i] || lab[i] === main) continue;
+      if ((x > 0 && rm[i - 1]) || (x < w - 1 && rm[i + 1]) || (y > 0 && rm[i - w]) || (y < h - 1 && rm[i + w])) nx[i] = 1;
+    }
+    rm = nx;
+  }
+  const out = new Float32Array(prob.length);
+  for (let y = 0; y < H; y++) {
+    const ly = Math.min(h - 1, (y / s) | 0);
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      out[i] = rm[ly * w + Math.min(w - 1, (x / s) | 0)] ? 0 : prob[i];
+    }
+  }
+  return out;
+}
+
+function rebuildProb() {
+  let p = S.rawProb;
+  if (els.refine.checked) p = guidedFilter(S.srcData.data, p, S.W, S.H);
+  if (els.mainOnly.checked) p = keepMain(p, S.W, S.H);
+  S.prob = p;
+}
+
+// Ambang & kehalusan → alpha dasar (smoothstep).
+function rebuildBase() {
+  const t = els.thresh.value / 100, w = els.soft.value / 100;
+  const lo = t - w / 2, span = Math.max(1e-3, w);
+  const p = S.prob, base = S.base;
+  for (let i = 0; i < p.length; i++) {
+    let v = (p[i] - lo) / span;
+    v = v <= 0 ? 0 : v >= 1 ? 1 : v * v * (3 - 2 * v);
+    base[i] = (v * 255 + 0.5) | 0;
+  }
+  S.blurCanvas = null;
+}
+
+// ===== Komposisi =====
+function updateCut(x0 = 0, y0 = 0, x1 = S.W, y1 = S.H) {
+  const { W, base, add, sub } = S;
+  const src = S.srcData.data, dst = S.cutData.data;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0, i = y * W + x0; x < x1; x++, i++) {
+      const a = base[i] + add[i] - sub[i];
+      const j = i * 4;
+      dst[j] = src[j]; dst[j + 1] = src[j + 1]; dst[j + 2] = src[j + 2];
+      dst[j + 3] = a < 0 ? 0 : a > 255 ? 255 : a;
+    }
+  }
+  S.cutCtx.putImageData(S.cutData, 0, 0, x0, y0, x1 - x0, y1 - y0);
+}
+
+function alphaArray() {
+  const { base, add, sub } = S, n = base.length, out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { const a = base[i] + add[i] - sub[i]; out[i] = a < 0 ? 0 : a > 255 ? 255 : a; }
+  return out;
+}
+
+function computeCrop() {
+  const { W, H } = S;
+  if (!els.autoCrop.checked) { S.crop = { x: 0, y: 0, w: W, h: H }; return; }
+  const alpha = alphaArray();
+  const bb = bbox(alpha, W, H, 100);
+  if (!bb) { S.crop = { x: 0, y: 0, w: W, h: H }; return; }
+  const pad = Math.round(Math.max(bb.w, bb.h) * els.pad.value / 100);
+  // Sisi tempat orang terpotong bingkai foto tidak diberi jarak (tidak ada isi di luar foto).
+  const e = 3;
+  const tL = bb.x <= e, tT = bb.y <= e, tR = bb.x + bb.w >= W - e, tB = bb.y + bb.h >= H - e;
+  let x0 = tL ? 0 : bb.x - pad, y0 = tT ? 0 : bb.y - pad;
+  let x1 = tR ? W : bb.x + bb.w + pad, y1 = tB ? H : bb.y + bb.h + pad;
+  let x = x0, y = y0, w = x1 - x0, h = y1 - y0;
+  const R = S.ratio;
+  if (R > 0) {
+    const lockX = tL || tR, lockY = tT || tB;
+    if (w / h > R) {                       // perlu lebih tinggi (atau lebih sempit)
+      const nh = w / R;
+      if (!lockY || nh <= H) { y = tB ? y1 - nh : tT ? 0 : y - (nh - h) / 2; h = nh; }
+      else { h = Math.min(h, H); const nw = h * R; x = headCenterX(alpha, bb) - nw / 2; w = nw; }
+    } else {                               // perlu lebih lebar (atau lebih pendek)
+      const nw = h * R;
+      if (!lockX || nw <= W) { x = headCenterX(alpha, bb) - nw / 2; w = nw; }
+      else { w = Math.min(w, W); h = w / R; y = y0; }   // potong dari bawah, kepala tetap utuh
+    }
+  }
+  // Geser ke dalam foto bila muat, supaya tidak ada area kosong di luar foto.
+  if (w <= W) x = Math.min(Math.max(x, 0), W - w);
+  if (h <= H) y = Math.min(Math.max(y, 0), H - h);
+  S.crop = { x: Math.round(x), y: Math.round(y), w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
+}
+
+// Titik tengah horizontal kepala (rata-rata piksel orang di 20% bagian atas),
+// supaya pangkasan dengan rasio tetap (mis. pas foto) berpusat di wajah.
+function headCenterX(alpha, bb) {
+  const { W } = S, yEnd = bb.y + Math.max(1, Math.round(bb.h * 0.2));
+  let sx = 0, sw = 0;
+  for (let y = bb.y; y < yEnd; y++) for (let x = bb.x, i = y * W + bb.x; x < bb.x + bb.w; x++, i++) {
+    const a = alpha[i]; if (a > 100) { sx += x * a; sw += a; }
+  }
+  return sw ? sx / sw : bb.x + bb.w / 2;
+}
+
+function getBlurCanvas() {
+  if (S.blurCanvas) return S.blurCanvas;
+  // Buram tanpa ctx.filter (agar jalan di Safari): rata-rata latar saja di grid kecil
+  // (orang tidak ikut, agar tidak ada bayangan), isi lubang dari sel tetangga, lalu perbesar.
+  const { W, H, base } = S, k = Math.max(W, H) / 48;
+  const sw = Math.max(2, Math.round(W / k)), sh = Math.max(2, Math.round(H / k));
+  const sum = new Float32Array(sw * sh * 3), wt = new Float32Array(sw * sh), src = S.srcData.data;
+  for (let y = 0; y < H; y += 2) {
+    const cy = Math.min(sh - 1, (y * sh / H) | 0);
+    for (let x = 0; x < W; x += 2) {
+      const i = y * W + x, c = cy * sw + Math.min(sw - 1, (x * sw / W) | 0), w = (255 - base[i]) / 255;
+      sum[c * 3] += src[i * 4] * w; sum[c * 3 + 1] += src[i * 4 + 1] * w; sum[c * 3 + 2] += src[i * 4 + 2] * w; wt[c] += w;
+    }
+  }
+  const minW = (k * k) / 4 * 0.05;
+  let filled = wt.map((w) => (w > minW ? 1 : 0)), todo = filled.includes(0) && filled.includes(1);
+  while (todo) {
+    todo = false;
+    const nf = filled.slice();
+    for (let c = 0; c < sw * sh; c++) {
+      if (filled[c]) continue;
+      const x = c % sw, y = (c - x) / sw; let r = 0, g = 0, bl = 0, n = 0;
+      for (const m of [x > 0 ? c - 1 : -1, x < sw - 1 ? c + 1 : -1, y > 0 ? c - sw : -1, y < sh - 1 ? c + sw : -1]) {
+        if (m >= 0 && filled[m]) { r += sum[m * 3] / wt[m]; g += sum[m * 3 + 1] / wt[m]; bl += sum[m * 3 + 2] / wt[m]; n++; }
+      }
+      if (n) { sum[c * 3] = r / n; sum[c * 3 + 1] = g / n; sum[c * 3 + 2] = bl / n; wt[c] = 1; nf[c] = 1; }
+      else todo = true;
+    }
+    filled = nf;
+  }
+  const a = makeCanvas(sw, sh), actx = a.getContext("2d"), tiny = actx.createImageData(sw, sh);
+  for (let c = 0; c < sw * sh; c++) {
+    const w = wt[c] || 1;
+    tiny.data[c * 4] = sum[c * 3] / w; tiny.data[c * 4 + 1] = sum[c * 3 + 1] / w; tiny.data[c * 4 + 2] = sum[c * 3 + 2] / w; tiny.data[c * 4 + 3] = 255;
+  }
+  actx.putImageData(tiny, 0, 0);
+  const b = makeCanvas(sw * 4, sh * 4), bctx = b.getContext("2d");
+  bctx.imageSmoothingQuality = "high"; bctx.drawImage(a, 0, 0, b.width, b.height);
+  const c = makeCanvas(W, H), cctx = c.getContext("2d");
+  cctx.imageSmoothingQuality = "high"; cctx.drawImage(b, 0, 0, W, H);
+  return (S.blurCanvas = c);
+}
+
+function drawResult(canvas) {
+  const { x, y, w, h } = S.crop;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  if (S.comparing) { ctx.drawImage(S.srcCanvas, -x, -y); return; }
+  if (S.bg === "blur") { ctx.fillStyle = "#808080"; ctx.fillRect(0, 0, w, h); ctx.drawImage(getBlurCanvas(), -x, -y); }
+  else if (S.bg !== "transparent") { ctx.fillStyle = S.bg; ctx.fillRect(0, 0, w, h); }
+  ctx.drawImage(S.cutCanvas, -x, -y);
+}
+
+let rafId = 0;
+function renderView() {
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = 0;
+    drawResult(els.view);
+    els.outSize.textContent = `${S.crop.w} × ${S.crop.h} px`;
+  });
+}
+function renderAll() { updateCut(); renderView(); }
+
+// ===== Kuas koreksi =====
+let stroke = null;
+function toImage(ev) {
+  const r = els.view.getBoundingClientRect();
+  const k = els.view.width / r.width;
+  return { x: S.crop.x + (ev.clientX - r.left) * k, y: S.crop.y + (ev.clientY - r.top) * k, k };
+}
+function brushRadius(k) { return Math.max(1, (els.brushSize.value / 2) * k); }
+
+function stamp(cx, cy, R, erase, dirty) {
+  const { W, H, add, sub } = S;
+  const x0 = Math.max(0, Math.floor(cx - R)), x1 = Math.min(W - 1, Math.ceil(cx + R));
+  const y0 = Math.max(0, Math.floor(cy - R)), y1 = Math.min(H - 1, Math.ceil(cy + R));
+  if (x0 > x1 || y0 > y1) return;
+  const hard = 0.6 * R, R2 = R * R;
+  for (let y = y0; y <= y1; y++) {
+    const dy = y - cy;
+    for (let x = x0; x <= x1; x++) {
+      const dx = x - cx, d2 = dx * dx + dy * dy;
+      if (d2 > R2) continue;
+      const d = Math.sqrt(d2);
+      const v = d <= hard ? 255 : Math.round(255 * (1 - (d - hard) / (R - hard)));
+      const i = y * W + x;
+      if (erase) { if (v > sub[i]) sub[i] = v; add[i] = (add[i] * (255 - v)) / 255; }
+      else { if (v > add[i]) add[i] = v; sub[i] = (sub[i] * (255 - v)) / 255; }
+    }
+  }
+  dirty.x0 = Math.min(dirty.x0, x0); dirty.y0 = Math.min(dirty.y0, y0);
+  dirty.x1 = Math.max(dirty.x1, x1 + 1); dirty.y1 = Math.max(dirty.y1, y1 + 1);
+}
+
+function paintTo(ev) {
+  const p = toImage(ev);
+  const R = brushRadius(p.k), erase = S.tool === "erase";
+  const dirty = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  const last = stroke.last || p;
+  const dist = Math.hypot(p.x - last.x, p.y - last.y);
+  const steps = Math.max(1, Math.ceil(dist / (R * 0.3)));
+  for (let s = 1; s <= steps; s++) stamp(last.x + (p.x - last.x) * s / steps, last.y + (p.y - last.y) * s / steps, R, erase, dirty);
+  if (!stroke.last) stamp(p.x, p.y, R, erase, dirty);
+  stroke.last = p;
+  if (dirty.x1 > dirty.x0) {
+    for (const k of ["x0", "y0"]) stroke.box[k] = Math.min(stroke.box[k], dirty[k]);
+    for (const k of ["x1", "y1"]) stroke.box[k] = Math.max(stroke.box[k], dirty[k]);
+    updateCut(dirty.x0, dirty.y0, dirty.x1, dirty.y1);
+    renderView();
+  }
+}
+
+function moveCursor(ev) {
+  const sr = els.stage.getBoundingClientRect();
+  const d = +els.brushSize.value;
+  Object.assign(els.cursor.style, { left: `${ev.clientX - sr.left}px`, top: `${ev.clientY - sr.top}px`, width: `${d}px`, height: `${d}px` });
+  els.cursor.classList.add("on");
+}
+
+els.view.addEventListener("pointerdown", (ev) => {
+  if (S.tool === "view" || !S.prob || ev.button > 0) return;
+  ev.preventDefault();
+  els.view.setPointerCapture(ev.pointerId);
+  stroke = { before: { add: S.add.slice(), sub: S.sub.slice() }, box: { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity }, last: null };
+  paintTo(ev);
+});
+els.view.addEventListener("pointermove", (ev) => {
+  if (S.tool !== "view") moveCursor(ev);
+  if (stroke) { for (const e of ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev]) paintTo(e); }
+});
+function endStroke() {
+  if (!stroke) return;
+  const { box, before } = stroke; stroke = null;
+  if (box.x1 <= box.x0) return;
+  // Simpan hanya bagian yang berubah untuk urungkan.
+  const w = box.x1 - box.x0, h = box.y1 - box.y0, add = new Uint8Array(w * h), sub = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const o = (y + box.y0) * S.W + box.x0;
+    add.set(before.add.subarray(o, o + w), y * w); sub.set(before.sub.subarray(o, o + w), y * w);
+  }
+  S.undo.push({ box, add, sub });
+  if (S.undo.length > UNDO_LIMIT) S.undo.shift();
+  els.undo.disabled = false;
+}
+els.view.addEventListener("pointerup", endStroke);
+els.view.addEventListener("pointercancel", endStroke);
+els.view.addEventListener("pointerleave", () => els.cursor.classList.remove("on"));
+
+els.undo.addEventListener("click", () => {
+  const u = S.undo.pop(); if (!u) return;
+  const { box } = u, w = box.x1 - box.x0, h = box.y1 - box.y0;
+  for (let y = 0; y < h; y++) {
+    const o = (y + box.y0) * S.W + box.x0;
+    S.add.set(u.add.subarray(y * w, y * w + w), o); S.sub.set(u.sub.subarray(y * w, y * w + w), o);
+  }
+  updateCut(box.x0, box.y0, box.x1, box.y1); renderView();
+  els.undo.disabled = S.undo.length === 0;
+});
+
+document.querySelector(".seg").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  S.tool = b.dataset.tool; setPressed(b.parentElement, b);
+  els.stage.classList.toggle("painting", S.tool !== "view");
+});
+
+// Tahan untuk melihat foto asli.
+const compareOn = (ev) => { ev.preventDefault(); S.comparing = true; renderView(); };
+const compareOff = () => { if (S.comparing) { S.comparing = false; renderView(); } };
+els.compare.addEventListener("pointerdown", compareOn);
+["pointerup", "pointerleave", "pointercancel"].forEach((t) => els.compare.addEventListener(t, compareOff));
+els.compare.addEventListener("contextmenu", (e) => e.preventDefault());
+
+// ===== Panel =====
+$("swatches").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".sw"); if (!b) return;
+  if (b.dataset.bg === "custom") { S.bg = els.customColor.value; if (ev.target !== els.customColor) els.customColor.click(); }
+  else S.bg = b.dataset.bg;
+  setPressed(b.parentElement, b); renderView();
+});
+els.customColor.addEventListener("input", () => {
+  S.bg = els.customColor.value; els.customChip.style.background = S.bg;
+  setPressed($("swatches"), $("customSw")); renderView();
+});
+
+$("ratios").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".chip"); if (!b) return;
+  S.ratio = +b.dataset.ratio; setPressed(b.parentElement, b);
+  if (!els.autoCrop.checked) { els.autoCrop.checked = true; syncCropOpts(); }
+  if (S.prob) { computeCrop(); renderView(); }
+});
+function syncCropOpts() { els.cropOpts.classList.toggle("dim", !els.autoCrop.checked); }
+els.autoCrop.addEventListener("change", () => { syncCropOpts(); if (S.prob) { computeCrop(); renderView(); } });
+els.pad.addEventListener("input", () => { els.padOut.textContent = `${els.pad.value}%`; if (S.prob) { computeCrop(); renderView(); } });
+
+let edgeTimer;
+function onEdgeSlider() {
+  els.threshOut.textContent = els.thresh.value; els.softOut.textContent = els.soft.value;
+  if (!S.prob) return;
+  cancelAnimationFrame(edgeTimer);
+  edgeTimer = requestAnimationFrame(() => { rebuildBase(); updateCut(); renderView(); });
+}
+els.thresh.addEventListener("input", onEdgeSlider);
+els.soft.addEventListener("input", onEdgeSlider);
+// Pangkas dihitung ulang saat slider dilepas agar bingkai tidak melompat-lompat.
+els.thresh.addEventListener("change", () => { if (S.prob) { computeCrop(); renderView(); } });
+
+async function onModelToggle() {
+  if (!S.rawProb) return;
+  busy("Memproses…"); await nextFrame();
+  rebuildProb(); rebuildBase(); computeCrop(); renderAll(); busy();
+}
+els.refine.addEventListener("change", onModelToggle);
+els.mainOnly.addEventListener("change", onModelToggle);
+
+// ===== Unduh / bagikan =====
+function resultBlob() {
+  const c = makeCanvas(1, 1);
+  const was = S.comparing; S.comparing = false; drawResult(c); S.comparing = was;
+  return new Promise((res) => c.toBlob(res, "image/png"));
+}
+const outName = () => `${S.name}-tanpa-latar.png`;
+
+els.download.addEventListener("click", async () => {
+  if (!S.prob) return;
+  const blob = await resultBlob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = outName();
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("PNG diunduh");
+});
+
+if (navigator.canShare && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] })) {
+  els.share.hidden = false;
+  els.share.addEventListener("click", async () => {
+    if (!S.prob) return;
+    const file = new File([await resultBlob()], outName(), { type: "image/png" });
+    try { await navigator.share({ files: [file] }); } catch (e) { if (e.name !== "AbortError") toast("Gagal membagikan"); }
+  });
+} else {
+  els.another.classList.add("wide");
+}
+
+els.another.addEventListener("click", () => { els.file.value = ""; els.file.click(); });
+
+// ===== Masukan foto: pilih, tarik, tempel =====
+els.file.addEventListener("change", () => { if (els.file.files[0]) loadFile(els.file.files[0]); });
+["dragenter", "dragover"].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); els.drop.classList.add("over"); }));
+document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) els.drop.classList.remove("over"); });
+document.addEventListener("drop", (e) => {
+  e.preventDefault(); els.drop.classList.remove("over");
+  const f = e.dataTransfer?.files?.[0]; if (f) loadFile(f);
+});
+document.addEventListener("paste", (e) => {
+  const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+  if (item) loadFile(item.getAsFile());
+});
+
+// Mulai unduh model begitu pengguna akan memilih foto, supaya hasil pertama lebih cepat.
+const warm = () => getSegmenter().catch(() => {});
+["pointerdown", "dragenter", "focusin"].forEach((t) => els.drop.addEventListener(t, warm, { once: true }));
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// Untuk pengujian otomatis.
+window.__hapusLatar = { S, loadFile };
+</script>
+</body>
+</html>
